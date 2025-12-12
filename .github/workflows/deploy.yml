@@ -1,0 +1,31 @@
+name: Deploy to Dokploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Dokploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /path/to/truco
+            git pull origin main
+            docker-compose down
+            docker-compose up -d --build
+            docker image prune -f
+
+      - name: Notify deployment
+        run: echo "Deployment completed successfully!"

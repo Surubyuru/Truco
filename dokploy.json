@@ -1,0 +1,21 @@
+{
+    "name": "truco-uruguayo",
+    "type": "docker-compose",
+    "repository": {
+        "url": "https://github.com/tu-usuario/truco.git",
+        "branch": "main"
+    },
+    "compose": {
+        "file": "docker-compose.yml"
+    },
+    "domains": [
+        {
+            "host": "truco.tudominio.com",
+            "https": true,
+            "certificateType": "letsencrypt"
+        }
+    ],
+    "env": {
+        "NODE_ENV": "production"
+    }
+}
