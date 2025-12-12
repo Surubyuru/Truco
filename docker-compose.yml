@@ -33,6 +33,7 @@ services:
       - server
     networks:
       - truco-network
+      - dokploy-network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.truco.rule=Host(`truco.peluguay.es`)"
@@ -48,3 +49,5 @@ services:
 networks:
   truco-network:
     driver: bridge
+  dokploy-network:
+    external: true
