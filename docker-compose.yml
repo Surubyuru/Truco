@@ -27,8 +27,6 @@ services:
       dockerfile: Dockerfile.client
     container_name: truco-client
     restart: unless-stopped
-    ports:
-      - "8080:80"
     depends_on:
       - server
     networks:
