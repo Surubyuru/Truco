@@ -9,12 +9,12 @@ services:
       - PORT=3000
       - MONGO_URI=mongodb://truco_user:truco_password@truco-db-lesapr:27017/truco-db?authSource=admin
     depends_on:
-      mongodb:
+      truco-db-lesapr:
         condition: service_healthy
     networks:
       - truco-network
 
-  mongodb:
+  truco-db-lesapr:
     image: mongo:latest
     container_name: truco-db-lesapr
     restart: unless-stopped

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const playerSchema = new mongoose.Schema({
     id: String,
@@ -18,7 +18,7 @@ const roomSchema = new mongoose.Schema({
         turnArg: Number,
         dealerIdx: Number,
         muestra: Object,
-        hands: Object, // Keyed by player ID
+        hands: Object,
         table: Array,
         teamScores: {
             1: { type: Number, default: 0 },
@@ -32,4 +32,4 @@ const roomSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Room', roomSchema);
+export default mongoose.model('Room', roomSchema);

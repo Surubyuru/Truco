@@ -1,9 +1,9 @@
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const mongoose = require('mongoose');
-const { createDeck, shuffleDeck, dealHands } = require('./game/logic');
-const Room = require('./models/Room');
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import mongoose from 'mongoose';
+import { createDeck, shuffleDeck, dealHands } from './game/logic.js';
+import Room from './models/Room.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -73,7 +73,7 @@ io.on('connection', (socket) => {
         if (room.game.turnArg !== playerIdx) return;
 
         // Remove card from hand
-        const hand = room.game.hands.get(socket.id); // Use .get() for Map
+        const hand = room.game.hands[socket.id];
         const cardIdx = hand.findIndex(c => c.suit === card.suit && c.value === card.value);
         if (cardIdx === -1) return;
         hand.splice(cardIdx, 1);
@@ -105,7 +105,7 @@ io.on('connection', (socket) => {
         if (room && room.game) {
             const player = room.players.find(p => p.id === socket.id);
             const opponentTeam = player.team === 1 ? 2 : 1;
-            room.game.teamScores.set(opponentTeam.toString(), room.game.teamScores.get(opponentTeam.toString()) + 1); // Use .get() and .set() for Map
+            room.game.teamScores[opponentTeam] += 1;
             room.markModified('game.teamScores');
             checkWinCondition(room);
             await room.save(); // Save after checkWinCondition might modify status
