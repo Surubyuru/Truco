@@ -48,4 +48,4 @@ networks:
   truco-network:
     driver: bridge
   dokploy-network:
-    name: dokploy-network
+    external: true
