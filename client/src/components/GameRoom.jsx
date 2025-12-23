@@ -19,11 +19,12 @@ export default function GameRoom() {
         socket.on('game_finished', setRoom);
 
         return () => {
+            socket.emit('leave_room', { roomId: id });
             socket.off('game_update');
             socket.off('admin_game_state');
             socket.off('game_finished');
         };
-    }, []);
+    }, [id]);
 
     if (!room) return <div className="app-container">Cargando partida...</div>;
 

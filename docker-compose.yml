@@ -5,8 +5,33 @@ services:
       dockerfile: Dockerfile
     container_name: truco-server
     restart: unless-stopped
+    environment:
+      - PORT=3000
+      - MONGO_URI=mongodb://truco_user:truco_password@truco-db-lesapr:27017/truco-db?authSource=admin
+    depends_on:
+      mongodb:
+        condition: service_healthy
     networks:
       - truco-network
+
+  mongodb:
+    image: mongo:latest
+    container_name: truco-db-lesapr
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=truco_user
+      - MONGO_INITDB_ROOT_PASSWORD=truco_password
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - truco-network
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   client:
     build:
@@ -27,6 +52,10 @@ services:
       - "traefik.http.routers.truco-uruguayo.tls=true"
       - "traefik.http.routers.truco-uruguayo.tls.certresolver=letsencrypt"
       - "traefik.http.services.truco-uruguayo.loadbalancer.server.port=80"
+
+volumes:
+  mongo-data:
+
 
 networks:
   truco-network:
