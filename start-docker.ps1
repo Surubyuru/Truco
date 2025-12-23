@@ -1,11 +1,8 @@
-# Simplified start script
-Write-Host "Starting Docker..."
-if (docker network ls --filter name=dokploy-network -q) {
-    Write-Host "Network exists."
-}
-else {
+
+Write-Host "Iniciando Truco en Docker..."
+if (-not (docker network ls --filter name=dokploy-network -q)) {
     docker network create dokploy-network
 }
 docker-compose down
 docker-compose up -d --build
-Write-Host "Done! Check http://localhost"
+Write-Host "Listo! http://localhost"

@@ -1,42 +1,35 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { socket } from '../socket';
 
 export default function Login() {
-    const [name, setName] = useState('');
+    const [name, setName] = useState(localStorage.getItem('playerName') || '');
     const navigate = useNavigate();
 
     const handleLogin = (e) => {
         e.preventDefault();
         if (!name.trim()) return;
-
-        // Conectar socket y guardar user
-        // socket.auth = { username: name }; // Si usaramos auth middleware
-        socket.connect();
-        localStorage.setItem('truco_player_name', name);
+        localStorage.setItem('playerName', name);
         navigate('/lobby');
     };
 
     return (
-        <div className="page-container">
-            <div className="glass-panel text-center floating" style={{ maxWidth: '400px', width: '100%' }}>
-                <div className="mb-8">
-                    <h1 className="title-large title-gradient">TRUCO</h1>
-                    <h2 className="subtitle">Uruguayo</h2>
-                </div>
+        <div className="app-container">
+            <div className="glass-panel animate-fade-in" style={{ padding: '40px', width: '350px', textAlign: 'center' }}>
+                <h1 className="title-gradient">TRUCO</h1>
+                <p style={{ color: 'var(--text-dim)', marginBottom: '30px' }}>URUGUAYO ONLINE</p>
 
-                <form onSubmit={handleLogin} className="flex-col gap-4">
+                <form onSubmit={handleLogin}>
                     <input
                         type="text"
-                        placeholder="Tu Nombre de Jugador"
+                        className="input-glass"
+                        placeholder="Tu nombre..."
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="input-premium"
-                        maxLength={12}
+                        autoFocus
                     />
-                    <button type="submit" className="btn-primary w-full">
-                        INGRESAR
+                    <button type="submit" className="btn-primary" style={{ marginTop: '20px', width: '100%' }}>
+                        ENTRAR
                     </button>
                 </form>
             </div>
