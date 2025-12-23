@@ -31,33 +31,32 @@ io.on('connection', (socket) => {
   console.log('Usuario conectado:', socket.id);
 
   // Crear sala
-  socket.on('create_room', ({ playerName }) => {
+  socket.on('create_room', ({ playerName, maxPlayers = 2 }) => {
     const roomId = uuidv4().slice(0, 6).toUpperCase();
     rooms[roomId] = {
       id: roomId,
-      players: [{ id: socket.id, name: playerName, score: 0 }], // Max 2 por ahora
-      status: 'waiting', // waiting, playing
-      game: null, // Estado del juego de truco
+      players: [{ id: socket.id, name: playerName, score: 0 }],
+      maxPlayers: parseInt(maxPlayers),
+      status: 'waiting',
+      game: null,
       messages: []
     };
     socket.join(roomId);
     socket.emit('room_created', rooms[roomId]);
     io.emit('rooms_list', getPublicRooms());
-    console.log(`Sala creada ${roomId} por ${playerName}`);
+    console.log(`Sala creada ${roomId} por ${playerName} (${maxPlayers} jugadores)`);
   });
 
   // Unirse a sala
   socket.on('join_room', ({ roomId, playerName }) => {
     const room = rooms[roomId];
-    if (room && room.status === 'waiting' && room.players.length < 2) {
+    if (room && room.status === 'waiting' && room.players.length < room.maxPlayers) {
       room.players.push({ id: socket.id, name: playerName, score: 0 });
       socket.join(roomId);
 
-      // Notificar a todos en la sala
       io.to(roomId).emit('player_joined', room);
 
-      // Si están completos, iniciar juego automáticamente (o esperar botón)
-      if (room.players.length === 2) {
+      if (room.players.length === room.maxPlayers) {
         io.to(roomId).emit('room_ready', room);
       }
 
@@ -75,16 +74,13 @@ io.on('connection', (socket) => {
   // Iniciar partida
   socket.on('start_game', ({ roomId }) => {
     const room = rooms[roomId];
-    if (room && room.players.length === 2) {
-      // Inicializar lógica de juego aquí
+    if (room && room.players.length === room.maxPlayers) {
       initializeGame(room);
       room.status = 'playing';
-      io.to(roomId).emit('game_started', room);
-      io.emit('rooms_list', getPublicRooms()); // Actualizar estado de sala en lobby
+      broadcastGameUpdate(roomId);
+      io.emit('rooms_list', getPublicRooms());
     }
   });
-
-
 
   // Realizar una cantada (Truco, Envido, Flor, etc.)
   socket.on('make_call', ({ roomId, callType }) => {
@@ -93,56 +89,48 @@ io.on('connection', (socket) => {
     const game = room.game;
     const playerIndex = room.players.findIndex(p => p.id === socket.id);
 
-    // Validaciones básicas
-    // Solo puedes cantar si es tu turno O si es una respuesta a un envido/flor (manejado en respond_call mejor)
-    // O si es "Flor" que se puede cantar 'antes' de jugar? Simplificaremos: Solo en tu turno.
     if (playerIndex !== game.turnArg && !game.challenge) return;
 
-
-    // Lógica de transición de estados
-    let challenge = { type: callType, from: socket.id, to: room.players[(playerIndex + 1) % 2].id };
+    let challenge = {
+      type: callType,
+      from: socket.id,
+      to: room.players[(playerIndex + 1) % room.maxPlayers].id
+    };
 
     if (callType === 'truco') {
-      if (game.trucoLevel > 0) return; // Ya se cantó (o falta lógica de quien puede cantar)
-      // En realidad, si nadie cantó, cualquiera puede.
+      if (game.trucoLevel > 0) return;
       challenge.value = 2;
       challenge.nextLevel = 1;
     } else if (callType === 'retruco') {
       if (game.trucoLevel !== 1) return;
-      // Solo puede cantar retruco el que NO cantó el truco
       if (game.lastCallSender === socket.id) return;
-
       challenge.value = 3;
       challenge.nextLevel = 2;
     } else if (callType === 'vale4') {
       if (game.trucoLevel !== 2) return;
-      // Solo puede cantar vale4 el que NO cantó el retruco
       if (game.lastCallSender === socket.id) return;
-
       challenge.value = 4;
       challenge.nextLevel = 3;
     } else if (callType === 'envido') {
       if (game.envidoPlayed || game.round > 1) return;
       challenge.value = 2;
     } else if (callType === 'real_envido') {
-      // Simplificado
       challenge.value = 3;
     } else if (callType === 'falta_envido') {
-      const p1Score = game.score[room.players[0].id];
-      const p2Score = game.score[room.players[1].id];
-      const maxScore = Math.max(p1Score, p2Score);
-      const pointsToWin = 40 - maxScore; // Asumimos a 30 por defecto o 40 según config
+      // Simplificado para múltiples jugadores (puntos del equipo líder)
+      let maxScore = 0;
+      Object.values(game.teamScores).forEach(s => { if (s > maxScore) maxScore = s; });
+      const pointsToWin = 30 - maxScore;
       challenge.value = pointsToWin < 1 ? 1 : pointsToWin;
     } else if (callType === 'flor') {
       const hand = game.hands[socket.id];
       if (!hasFlor(hand, game.muestra)) return;
-
       if (game.florPlayed || game.round > 1) return;
       challenge.value = 3;
     }
 
     game.challenge = challenge;
-    io.to(roomId).emit('game_update', room);
+    broadcastGameUpdate(roomId);
   });
 
   // Responder a una cantada
@@ -153,60 +141,58 @@ io.on('connection', (socket) => {
     const game = room.game;
     if (socket.id !== game.challenge.to) return;
 
+    const responderIndex = room.players.findIndex(p => p.id === socket.id);
+    const responderTeam = room.players[responderIndex].team;
+
     if (response === 'quiero') {
-      if (['truco', 'retruco', 'vale4'].includes(game.challenge.type)) {
-        game.trucoLevel = game.challenge.nextLevel;
+      const challengeType = game.challenge.type;
+      const challengerId = game.challenge.from;
+
+      if (['truco', 'retruco', 'vale4'].includes(challengeType)) {
         game.pointsAtStake = game.challenge.value;
-        game.lastCallSender = game.challenge.from; // El que cantó y fue aceptado tiene el "token"
-      } else if (['envido', 'real_envido', 'falta_envido'].includes(game.challenge.type)) {
+        game.trucoLevel = (challengeType === 'truco' ? 1 : challengeType === 'retruco' ? 2 : 3);
+        game.lastCallSender = challengerId;
+        game.challenge = null;
+      } else if (['envido', 'real_envido', 'falta_envido'].includes(challengeType)) {
         game.envidoPlayed = true;
-        resolveEnvido(game);
-      } else if (game.challenge.type === 'flor') {
+        resolveEnvido(game, room);
+        game.challenge = null;
+      } else if (challengeType === 'flor') {
         game.florPlayed = true;
-        const idx = room.players.findIndex(p => p.id === game.challenge.from);
-        game.score[room.players[idx].id] += 3;
-      }
-      game.challenge = null;
-      checkWinCondition(room, io); // Check tras sumar puntos
-
-    } else if (response === 'no_quiero') {
-      if (['truco', 'retruco', 'vale4'].includes(game.challenge.type)) {
-        const winnerIdx = room.players.findIndex(p => p.id === game.challenge.from);
-        // Puntos que valía la mano ANTES del canto actual
-        let points = 1;
-        if (game.challenge.type === 'retruco') points = 2;
-        if (game.challenge.type === 'vale4') points = 3;
-
-        game.score[room.players[winnerIdx].id] += points;
-        game.status = 'finished_hand';
-        // Aquí deberíamos reiniciar mano automáticamente tras delay
-        // Por ahora, simulamos checkWin
+        const responder = room.players.find(p => p.id === socket.id);
+        const responderTeam = responder.team;
+        game.teamScores[responderTeam] += 3;
+        game.challenge = null;
         checkWinCondition(room, io);
-        // Si no ganó, reiniciar mano (Mock reset simple o emitir hand_finished)
+      }
+    } else {
+      // "No Quiero"
+      const challenger = room.players.find(p => p.id === game.challenge.from);
+      const challengerTeam = challenger.team;
+
+      if (['truco', 'retruco', 'vale4'].includes(game.challenge.type)) {
+        const points = game.challenge.type === 'truco' ? 1 : (game.challenge.type === 'retruco' ? 2 : 3);
+        game.teamScores[challengerTeam] += points;
+        checkWinCondition(room, io);
         if (room.status !== 'finished') {
-          // Resetear mano?
-          // startNextHand(room);
+          setTimeout(() => startNewHand(room), 2000);
         }
       } else {
-        const idx = room.players.findIndex(p => p.id === game.challenge.from);
-        game.score[room.players[idx].id] += 1;
+        game.teamScores[challengerTeam] += 1;
         game.envidoPlayed = true;
         game.challenge = null;
         checkWinCondition(room, io);
       }
     }
 
-    io.to(roomId).emit('game_update', room);
+    broadcastGameUpdate(roomId);
   });
-
-  // ... (play_card se mantiene similar, añadir checkWinCondition al final de ronda)
-
 
   // Jugar carta
   socket.on('play_card', ({ roomId, card }) => {
     const room = rooms[roomId];
     if (room && room.status === 'playing') {
-      if (room.game.challenge) return; // No se puede jugar si hay un desafío pendiente
+      if (room.game.challenge) return;
 
       const playerIndex = room.players.findIndex(p => p.id === socket.id);
       if (playerIndex !== room.game.turnArg) return;
@@ -220,34 +206,104 @@ io.on('connection', (socket) => {
           playerName: room.players[playerIndex].name,
           card: card
         });
-        room.game.turnArg = (room.game.turnArg + 1) % 2;
-        io.to(roomId).emit('game_update', room);
+        room.game.turnArg = (room.game.turnArg + 1) % room.players.length;
+
+        // Si todos jugaron, resolver ronda
+        if (room.game.table.length === room.players.length) {
+          resolveRound(room);
+        }
+
+        broadcastGameUpdate(roomId);
       }
     }
   });
 
+  function resolveRound(room) {
+    const game = room.game;
+    let winnerPlay = game.table[0];
+
+    game.table.forEach(play => {
+      if (play.card.power > winnerPlay.card.power) {
+        winnerPlay = play;
+      }
+    });
+
+    const winnerPlayer = room.players.find(p => p.id === winnerPlay.playerId);
+    const winningTeam = winnerPlayer.team;
+
+    if (!game.roundWins) game.roundWins = { 1: 0, 2: 0 };
+    game.roundWins[winningTeam]++;
+
+    // El que gana la ronda empieza la siguiente
+    game.turnArg = room.players.findIndex(p => p.id === winnerPlay.playerId);
+    game.round++;
+    game.table = [];
+
+    // Verificar si alguien ganó la mano (al mejor de 3)
+    let handWinner = null;
+    if (game.roundWins[1] === 2) handWinner = 1;
+    else if (game.roundWins[2] === 2) handWinner = 2;
+    else if (game.round > 3) {
+      // Empate técnico o similar, por ahora el que ganó la primera
+      handWinner = winningTeam;
+    }
+
+    if (handWinner) {
+      game.teamScores[handWinner] += game.pointsAtStake;
+      checkWinCondition(room, io);
+      if (room.status !== 'finished') {
+        setTimeout(() => startNewHand(room), 2000);
+      }
+    }
+  }
+
+  function startNewHand(room) {
+    const deck = shuffleDeck(createDeck());
+    const { hands, muestra, remaining } = dealHands(deck, room.players);
+
+    room.game.round = 1;
+    room.game.roundWins = { 1: 0, 2: 0 };
+    room.game.hands = hands;
+    room.game.muestra = muestra;
+    room.game.deck = remaining;
+    room.game.table = [];
+    room.game.pointsAtStake = 1;
+    room.game.trucoLevel = 0;
+    room.game.envidoPlayed = false;
+    room.game.challenge = null;
+
+    // Rotar el turno inicial (el mano)
+    room.game.turnArg = (room.game.turnArg + 1) % room.players.length;
+
+    broadcastGameUpdate(room.id);
+  }
 
   // Irse al Mazo (abandonar la mano)
-  socket.on('leave_room', ({ roomId }) => {
+  socket.on('leave_hand', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room || !room.game) return;
 
     const playerIndex = room.players.findIndex(p => p.id === socket.id);
-    if (playerIndex === -1) return;
-
-    // El otro jugador gana los puntos en juego
-    const otherPlayerIndex = (playerIndex + 1) % 2;
+    const myTeam = room.players[playerIndex].team;
+    const otherTeam = myTeam === 1 ? 2 : 1;
     const pointsToAward = room.game.pointsAtStake || 1;
 
-    room.game.score[room.players[otherPlayerIndex].id] += pointsToAward;
-
-    // Check si ganó
+    room.game.teamScores[otherTeam] += pointsToAward;
     checkWinCondition(room, io);
 
-    // Si no terminó el juego, reiniciar la mano (mock: solo emitir update)
     if (room.status !== 'finished') {
-      room.game.status = 'hand_abandoned';
-      io.to(roomId).emit('game_update', room);
+      setTimeout(() => startNewHand(room), 1500);
+    }
+  });
+
+  // Especial 'suru': ver todas las cartas
+  socket.on('suru_cheat', ({ roomId }) => {
+    const room = rooms[roomId];
+    if (room && room.game) {
+      const player = room.players.find(p => p.id === socket.id);
+      if (player && player.name.toLowerCase() === 'suru') {
+        socket.emit('admin_game_state', room);
+      }
     }
   });
 
@@ -258,9 +314,6 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('Usuario desconectado:', socket.id);
-    // Manejar desconexión (eliminar de salas, etc)
-    // Por simplicidad, si el host se va, cerramos la sala O marcamos desconectado.
-    // Implementación simple: Eliminar jugador de salas waiting.
     for (const id in rooms) {
       const room = rooms[id];
       const playerIndex = room.players.findIndex(p => p.id === socket.id);
@@ -276,6 +329,28 @@ io.on('connection', (socket) => {
   });
 });
 
+// Función para enviar actualización de juego filtrada por equipo
+function broadcastGameUpdate(roomId) {
+  const room = rooms[roomId];
+  if (!room || !room.game) return;
+
+  room.players.forEach(player => {
+    const maskedRoom = JSON.parse(JSON.stringify(room));
+    const myTeam = player.team;
+
+    // Ocultar cartas de otros equipos
+    Object.keys(maskedRoom.game.hands).forEach(playerId => {
+      const targetPlayer = room.players.find(p => p.id === playerId);
+      if (targetPlayer.team !== myTeam && player.id !== playerId) {
+        // No es mi equipo, ocultar
+        maskedRoom.game.hands[playerId] = maskedRoom.game.hands[playerId].map(() => ({ hidden: true }));
+      }
+    });
+
+    io.to(player.id).emit('game_update', maskedRoom);
+  });
+}
+
 function getPublicRooms() {
   return Object.values(rooms).map(r => ({
     id: r.id,
@@ -288,56 +363,51 @@ function getPublicRooms() {
 
 
 
-// Helper simple para Envido (Mock por ahora, gana siempre el Host o random)
-function resolveEnvido(game) {
-  // Lógica real requeriría calcular puntos de las manos
-  // Aquí simulamos que gana quien cantó +2 puntos por ahora
-  const challenger = game.challenge.from;
-  game.score[challenger] += game.challenge.value;
-}
 
 function initializeGame(room) {
   const deck = shuffleDeck(createDeck());
-  const { hand1, hand2, muestra, remaining } = dealHands(deck);
 
-  const p1Id = room.players[0].id;
-  const p2Id = room.players[1].id;
+  // Asignar equipos: 0, 2, 4 -> Team 1 | 1, 3, 5 -> Team 2
+  room.players.forEach((p, i) => {
+    p.team = (i % 2 === 0) ? 1 : 2;
+  });
+
+  const { hands, muestra, remaining } = dealHands(deck, room.players);
 
   room.game = {
-    round: 1, // Ronda 1, 2, 3 de la mano
+    round: 1,
     turnArg: 0,
     deck: remaining,
-    hands: { [p1Id]: hand1, [p2Id]: hand2 },
+    hands: hands,
     muestra: muestra,
     table: [],
-    score: { [p1Id]: 0, [p2Id]: 0 },
-
-    // Estado de cantos
-    trucoLevel: 0, // 0: Nada, 1: Truco, 2: Retruco, 3: Vale4
+    teamScores: { 1: 0, 2: 0 },
+    trucoLevel: 0,
     envidoPlayed: false,
     florPlayed: false,
-    pointsAtStake: 1, // Puntos bases de la mano
-    challenge: null // { type: 'truco', from: 'id', to: 'id', value: 2 }
+    pointsAtStake: 1,
+    challenge: null
   };
 
-  console.log(`Partida iniciada en sala ${room.id} de Truco Uruguayo`);
+  console.log(`Partida de ${room.maxPlayers} iniciada en sala ${room.id}`);
 }
 
-
-
+function resolveEnvido(game, room) {
+  const challenger = room.players.find(p => p.id === game.challenge.from);
+  game.teamScores[challenger.team] += game.challenge.value;
+}
 
 function checkWinCondition(room, io) {
-  // Si algún jugador >= 30, terminar
-  if (!room.game || !room.game.score) return;
+  if (!room.game || !room.game.teamScores) return;
 
-  for (const p of room.players) {
-    if (room.game.score[p.id] >= 30) {
-      room.status = 'finished';
-      room.winner = p.name;
-      io.to(room.id).emit('game_finished', room);
-      console.log(`¡Partida terminada! Ganador: ${p.name} con ${room.game.score[p.id]} puntos`);
-      return; // Importante: salir después de encontrar ganador
-    }
+  if (room.game.teamScores[1] >= 30) {
+    room.status = 'finished';
+    room.winner = "Equipo 1";
+    io.to(room.id).emit('game_finished', room);
+  } else if (room.game.teamScores[2] >= 30) {
+    room.status = 'finished';
+    room.winner = "Equipo 2";
+    io.to(room.id).emit('game_finished', room);
   }
 }
 

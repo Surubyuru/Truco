@@ -20,12 +20,16 @@ fi
 echo "🛑 Deteniendo contenedores existentes..."
 docker-compose down
 
+# Crear red dokploy-network si no existe
+docker network inspect dokploy-network >/dev/null 2>&1 || \
+    docker network create dokploy-network
+
 # Construir y levantar contenedores
 echo "🔨 Construyendo imágenes..."
 docker-compose build
 
 echo "🚀 Levantando contenedores..."
-docker-compose up -d
+docker-compose up -d --build
 
 # Esperar a que los contenedores estén listos
 echo "⏳ Esperando a que los servicios estén listos..."

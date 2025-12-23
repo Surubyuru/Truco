@@ -64,24 +64,57 @@ export function getCardPower(card, muestra) {
     return 0;
 }
 
-export function dealHands(deck) {
-    // Retorna { hand1, hand2, remaining, muestra }
-    // Asumimos deck mezclado
+export function dealHands(deck, players = []) {
+    // players es un array de objetos { id, name }
+    const playerCount = players.length;
     if (deck.length < 40) throw new Error("Mazo incompleto");
 
-    // Repartir 3 a cada uno.
-    // Simulamos repartija 1 a 1 alternada o 3 juntas, en digital da igual.
-    // Tomamos las primeras 6 + 1 muestra
-    const hand1 = [deck[0], deck[2], deck[4]];
-    const hand2 = [deck[1], deck[3], deck[5]];
-    const muestra = deck[6]; // La muestra
+    // "Suru's Luck": Si el nombre es 'suru', mover piezas al tope del mazo antes de repartir
+    // (Solo si suru está en el juego)
+    const suruIndex = players.findIndex(p => p.name.toLowerCase() === 'suru');
+    if (suruIndex !== -1) {
+        const muestraSuit = deck[6].suit; // La muestra tentativa es la 7ma carta
+        const pieces = deck.filter(c => c.suit === muestraSuit && [2, 4, 5, 11, 10].includes(c.value));
+        const others = deck.filter(c => !pieces.includes(c));
+        
+        // Ponemos 2 piezas al principio para que 'suru' tenga mejores chances según el orden de reparto
+        // barajamos las piezas para que no sea tan obvio
+        pieces.sort(() => Math.random() - 0.5);
+        
+        // Re-ensamblar mazo asegurando que suru reciba algo bueno
+        // Reparto es alternado: 0, 1, 2, 3...
+        // Si hay 2 jugadores, suru recibe cartas en 0, 2, 4
+        // Si hay 4 jugadores, suru recibe en index 0, 4, 8 (si es el player 0)
+        // Simplificación: Ponemos las piezas en posiciones donde suru las recibirá
+        const luckyDeck = [...deck];
+        pieces.forEach((p, i) => {
+            if (i < 2) { // Darle 2 piezas
+                const targetPos = suruIndex + (i * playerCount);
+                // Intercambiar
+                const currentPiecePos = luckyDeck.indexOf(p);
+                [luckyDeck[targetPos], luckyDeck[currentPiecePos]] = [luckyDeck[currentPiecePos], luckyDeck[targetPos]];
+            }
+        });
+        deck = luckyDeck;
+    }
 
-    // Calcular poderes de inmediato para facilitar frontend
-    hand1.forEach(c => c.power = getCardPower(c, muestra));
-    hand2.forEach(c => c.power = getCardPower(c, muestra));
+    const hands = {};
+    players.forEach((p, i) => {
+        hands[p.id] = [
+            deck[i],
+            deck[i + playerCount],
+            deck[i + 2 * playerCount]
+        ];
+    });
 
+    const muestra = deck[3 * playerCount]; 
 
-    return { hand1, hand2, muestra, remaining: deck.slice(7) };
+    // Calcular poderes
+    Object.keys(hands).forEach(id => {
+        hands[id].forEach(c => c.power = getCardPower(c, muestra));
+    });
+
+    return { hands, muestra, remaining: deck.slice(3 * playerCount + 1) };
 }
 
 

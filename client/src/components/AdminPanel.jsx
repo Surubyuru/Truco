@@ -52,7 +52,7 @@ export default function AdminPanel() {
                                                 {r.status.toUpperCase()}
                                             </span>
                                         </td>
-                                        <td style={{ padding: 12, textAlign: 'right' }}>{r.players}/2</td>
+                                        <td style={{ padding: 12, textAlign: 'right' }}>{r.players}/{r.maxPlayers || 2}</td>
                                     </tr>
                                 ))
                             )}

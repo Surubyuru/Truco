@@ -27,13 +27,10 @@ export default function Lobby() {
         };
     }, [navigate]);
 
-    const createRoom = () => {
-        socket.emit('create_room', { playerName });
-    };
+    const [maxPlayers, setMaxPlayers] = useState(2);
 
-    const joinRoom = (roomId) => {
-        socket.emit('join_room', { roomId, playerName });
-        navigate(`/room/${roomId}`);
+    const createRoom = () => {
+        socket.emit('create_room', { playerName, maxPlayers });
     };
 
     return (
@@ -41,7 +38,17 @@ export default function Lobby() {
             <div className="w-full" style={{ maxWidth: '800px' }}>
                 <div className="flex-row justify-between mb-8" style={{ alignItems: 'center' }}>
                     <h1 className="title-gradient" style={{ fontSize: '2rem', margin: 0 }}>SALAS</h1>
-                    <div className="flex-row gap-4">
+                    <div className="flex-row gap-4" style={{ alignItems: 'center' }}>
+                        <select
+                            value={maxPlayers}
+                            onChange={(e) => setMaxPlayers(e.target.value)}
+                            className="input-premium"
+                            style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
+                        >
+                            <option value={2}>2 Jugadores</option>
+                            <option value={4}>4 Jugadores</option>
+                            <option value={6}>6 Jugadores</option>
+                        </select>
                         <button onClick={() => navigate('/admin')} className="btn-primary" style={{ background: 'transparent', border: '1px solid #fff', color: '#fff', boxShadow: 'none' }}>ADMIN</button>
                         <button onClick={createRoom} className="btn-primary">NUEVA PARTIDA</button>
                     </div>
@@ -63,22 +70,22 @@ export default function Lobby() {
                                             {room.status === 'waiting' ? 'Esperando Jugador' : 'En Juego'}
                                         </span>
                                         <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>•</span>
-                                        <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>{room.players}/2</span>
+                                        <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>{room.players}/{room.maxPlayers}</span>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => joinRoom(room.id)}
-                                    disabled={room.players >= 2}
+                                    disabled={room.players >= room.maxPlayers}
                                     className="btn-primary"
                                     style={{
                                         padding: '10px 24px',
-                                        opacity: room.players >= 2 ? 0.5 : 1,
-                                        background: room.players >= 2 ? '#334155' : undefined,
-                                        boxShadow: room.players >= 2 ? 'none' : undefined,
-                                        cursor: room.players >= 2 ? 'not-allowed' : 'pointer'
+                                        opacity: room.players >= room.maxPlayers ? 0.5 : 1,
+                                        background: room.players >= room.maxPlayers ? '#334155' : undefined,
+                                        boxShadow: room.players >= room.maxPlayers ? 'none' : undefined,
+                                        cursor: room.players >= room.maxPlayers ? 'not-allowed' : 'pointer'
                                     }}
                                 >
-                                    {room.players >= 2 ? 'LLENA' : 'ENTRAR'}
+                                    {room.players >= room.maxPlayers ? 'LLENA' : 'ENTRAR'}
                                 </button>
                             </div>
                         ))
