@@ -15,21 +15,24 @@ export default function Login() {
 
     return (
         <div className="app-container">
-            <div className="glass-panel animate-fade-in" style={{ padding: '40px', width: '350px', textAlign: 'center' }}>
-                <h1 className="title-gradient">TRUCO</h1>
-                <p style={{ color: 'var(--text-dim)', marginBottom: '30px' }}>URUGUAYO ONLINE</p>
+            <div className="glass-panel animate-card" style={{ padding: '60px 40px', width: '400px', textAlign: 'center' }}>
+                <h1 className="title-premium" style={{ fontSize: '4rem', marginBottom: '0.5rem' }}>TRUCO</h1>
+                <p style={{ color: 'var(--text-dim)', marginBottom: '40px', letterSpacing: '4px', fontSize: '0.8rem' }}>URUGUAYO ELITE</p>
 
                 <form onSubmit={handleLogin}>
-                    <input
-                        type="text"
-                        className="input-glass"
-                        placeholder="Tu nombre..."
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        autoFocus
-                    />
-                    <button type="submit" className="btn-primary" style={{ marginTop: '20px', width: '100%' }}>
-                        ENTRAR
+                    <div style={{ position: 'relative', marginBottom: '30px' }}>
+                        <input
+                            type="text"
+                            className="input-glass"
+                            placeholder="Escribe tu alias..."
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            autoFocus
+                            style={{ textAlign: 'center', fontSize: '1.2rem', padding: '16px' }}
+                        />
+                    </div>
+                    <button type="submit" className="btn-luxury" style={{ width: '100%' }}>
+                        ENTRAR AL CLUB
                     </button>
                 </form>
             </div>

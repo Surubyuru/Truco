@@ -1,20 +1,32 @@
 :root {
-    --primary: #fbbf24;
-    --primary-hover: #f59e0b;
-    --bg-dark: #0f172a;
-    --card-bg: rgba(30, 41, 59, 0.7);
+    --primary: #f59e0b;
+    --primary-glow: rgba(245, 158, 11, 0.4);
+    --secondary: #3b82f6;
+    --bg-dark: #020617;
+    --card-bg: rgba(15, 23, 42, 0.6);
     --text-main: #f8fafc;
     --text-dim: #94a3b8;
+    --gold: linear-gradient(135deg, #fbbf24, #d97706);
     --glass: rgba(255, 255, 255, 0.03);
-    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --accent: #ef4444;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
 }
 
 body {
     margin: 0;
-    background: var(--bg-dark);
+    background-color: var(--bg-dark);
+    background-image:
+        radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
     color: var(--text-main);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
+    min-height: 100vh;
 }
 
 .app-container {
@@ -23,100 +35,113 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at top right, #1e293b, #0f172a);
+    position: relative;
 }
 
+/* Glassmorphism primitives */
 .glass-panel {
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border-radius: 20px;
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
 }
 
-.btn-primary {
-    background: var(--primary);
-    color: #000;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.btn-primary:hover {
-    background: var(--primary-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
-}
-
-.btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.input-glass {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--glass-border);
-    padding: 12px 16px;
-    border-radius: 8px;
-    color: #fff;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.card {
-    width: 80px;
-    height: 120px;
-    border-radius: 8px;
-    background: #fff;
-    color: #1e293b;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.card:hover {
-    transform: translateY(-10px) rotate(2deg);
-    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
-}
-
-.card.hidden {
-    background: linear-gradient(45deg, #1e293b, #334155);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.title-gradient {
-    background: linear-gradient(to right, #fbbf24, #f59e0b);
+.title-premium {
+    background: var(--gold);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 900;
-    font-size: 3rem;
-    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: -2px;
+    line-height: 1;
 }
 
-@keyframes fadeIn {
+/* Luxury Card Styling */
+.card-wrapper {
+    perspective: 1000px;
+}
+
+.truco-card {
+    width: 90px;
+    height: 140px;
+    border-radius: 12px;
+    background: white;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    user-select: none;
+    background-image: linear-gradient(to bottom, #fff, #f1f5f9);
+}
+
+.truco-card:hover {
+    transform: translateY(-20px) scale(1.05);
+    box-shadow: 0 20px 30px -10px var(--primary-glow);
+}
+
+.truco-card.hidden {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: transparent !important;
+}
+
+.truco-card.hidden::after {
+    content: '🎴';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
+    opacity: 0.1;
+}
+
+/* Buttons */
+.btn-luxury {
+    background: var(--gold);
+    color: #000;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-luxury:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--primary-glow);
+}
+
+/* Animations */
+@keyframes card-in {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(50px) rotateX(-20deg);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) rotateX(0);
     }
 }
 
-.animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
+.animate-card {
+    animation: card-in 0.4s ease-out forwards;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .truco-card {
+        width: 60px;
+        height: 90px;
+        padding: 6px;
+    }
 }

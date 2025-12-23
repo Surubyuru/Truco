@@ -36,117 +36,199 @@ export default function GameRoom() {
     };
 
     return (
-        <div className="app-container" style={{ background: '#052c14', backgroundImage: 'radial-gradient(circle, #0a4d24 0%, #052c14 100%)' }}>
+        <div className="app-container" style={{ background: '#020617', overflow: 'hidden' }}>
 
             {/* HUD Superior: Puntos y Muestra */}
-            <div className="fixed top-0 left-0 w-full p-4 flex justify-between items-start z-50">
-                <div className="glass-panel p-4 flex-row gap-8">
+            <div className="fixed top-8 left-0 w-full flex justify-center z-50 pointer-events-none">
+                <div className="glass-panel p-6 flex gap-12 pointer-events-auto">
                     <div className="text-center">
-                        <div style={{ color: '#60a5fa', fontWeight: 'bold' }}>EQUIPO 1</div>
-                        <div style={{ fontSize: '1.5rem' }}>{room.game?.teamScores[1] || 0}</div>
+                        <div style={{ color: '#3b82f6', fontSize: '0.7rem', fontWeight: 900, letterSpacing: '2px' }}>TEAM 1</div>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#fff' }}>{room.game?.teamScores[1] || 0}</div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center opacity-30">
+                        <div style={{ height: '40px', width: '1px', background: '#fff' }}></div>
                     </div>
                     <div className="text-center">
-                        <div style={{ color: '#f87171', fontWeight: 'bold' }}>EQUIPO 2</div>
-                        <div style={{ fontSize: '1.5rem' }}>{room.game?.teamScores[2] || 0}</div>
+                        <div style={{ color: '#ef4444', fontSize: '0.7rem', fontWeight: 900, letterSpacing: '2px' }}>TEAM 2</div>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#fff' }}>{room.game?.teamScores[2] || 0}</div>
                     </div>
                 </div>
-
-                {room.game?.muestra && (
-                    <div className="glass-panel p-2 flex flex-col items-center">
-                        <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>MUESTRA</span>
-                        <div className="card" style={{ width: 60, height: 90, cursor: 'default' }}>
-                            <div style={{ fontWeight: 'bold' }}>{room.game.muestra.value}</div>
-                            <SuitIcon suit={room.game.muestra.suit} size="2rem" />
-                        </div>
-                    </div>
-                )}
-
-                {isSuru && (
-                    <div
-                        onClick={() => socket.emit('suru_cheat', { roomId: id })}
-                        style={{ width: '20px', height: '20px', background: 'rgba(255,255,255,0.02)', cursor: 'pointer' }}
-                    />
-                )}
             </div>
 
-            {/* Otros Jugadores */}
-            <div className="w-full flex justify-around p-10 pt-32">
-                {room.players.filter(p => p.id !== socket.id).map(p => {
-                    const hand = room.game?.hands[p.id] || [];
-                    const isTeammate = p.team === me?.team;
-                    return (
-                        <div key={p.id} className="flex flex-col items-center">
-                            <span style={{
-                                fontSize: '0.8rem',
-                                color: p.team === 1 ? '#60a5fa' : '#f87171',
-                                borderBottom: room.game?.turnArg === room.players.indexOf(p) ? '2px solid #fbbf24' : 'none'
-                            }}>
-                                {p.name} {isTeammate ? '(SOCIO)' : ''}
-                            </span>
-                            <div className="flex gap-1 mt-2">
-                                {hand.map((c, i) => (
-                                    <div key={i} className={`card ${c.hidden ? 'hidden' : ''}`} style={{ width: 40, height: 60, fontSize: '0.7rem' }}>
-                                        {!c.hidden && (
-                                            <>
-                                                <div style={{ fontWeight: 'bold' }}>{c.value}</div>
-                                                <SuitIcon suit={c.suit} size="1.2rem" />
-                                            </>
-                                        )}
-                                        {c.hidden && <span style={{ opacity: 0.2 }}>🎴</span>}
-                                    </div>
-                                ))}
+            {/* Muestra Lateral */}
+            {room.game?.muestra && (
+                <div className="fixed left-8 top-1/2 -translate-y-1/2 z-50 hidden lg:block">
+                    <div className="glass-panel p-4 flex flex-col items-center gap-4">
+                        <span style={{ fontSize: '0.7rem', opacity: 0.5, fontWeight: 900 }}>MUESTRA</span>
+                        <Card card={room.game.muestra} size="small" />
+                    </div>
+                </div>
+            )}
+
+            {/* Botón Cheat Suru */}
+            {isSuru && (
+                <div
+                    onClick={() => socket.emit('suru_cheat', { roomId: id })}
+                    className="fixed top-0 right-0 w-8 h-8 opacity-0 hover:opacity-10 pointer-events-auto cursor-help"
+                    style={{ background: '#fff' }}
+                />
+            )}
+
+            {/* Mesa de Juego Real */}
+            <div className="relative w-full h-[500px] max-w-5xl flex items-center justify-center">
+
+                {/* El Tapete (Fondo Mesa) */}
+                <div className="absolute inset-0 bg-[#064e3b] rounded-[100px] border-[8px] border-[#065f46] shadow-2xl skew-x-[-10deg] opacity-40"></div>
+                <div className="absolute inset-4 border border-white/5 rounded-[80px]"></div>
+
+                {/* Jugadores alrededor de la mesa */}
+                <div className="absolute inset-0">
+                    {room.players.map((p, idx) => {
+                        const isMe = p.id === socket.id;
+                        const pos = getPlayerPosition(idx, room.players.indexOf(me), room.maxPlayers);
+                        const hand = room.game?.hands[p.id] || [];
+                        if (isMe) return null;
+
+                        return (
+                            <div key={p.id} className="absolute flex flex-col items-center gap-3 transition-all duration-500"
+                                style={{
+                                    top: pos.top,
+                                    bottom: pos.bottom,
+                                    left: pos.left,
+                                    right: pos.right,
+                                    transform: 'translate(-50%, -50%)'
+                                }}>
+
+                                <div className={`glass-panel px-4 py-2 border-l-4 ${p.team === 1 ? 'border-blue-500' : 'border-red-500'} 
+                                ${room.game?.turnArg === idx ? 'ring-2 ring-amber-400' : ''}`}>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{p.name}</span>
+                                    {p.team === me?.team && <div style={{ fontSize: '0.6rem', color: 'var(--primary)', fontWeight: 900 }}>SOCIO</div>}
+                                </div>
+
+                                <div className="flex gap-[-10px]">
+                                    {hand.map((c, i) => (
+                                        <Card key={i} card={c} size="mini" />
+                                    ))}
+                                </div>
                             </div>
+                        );
+                    })}
+                </div>
+
+                {/* Centro de la mesa: Cartas jugadas */}
+                <div className="relative flex items-center justify-center gap-6 h-full w-full">
+                    {room.game?.table.map((play, i) => (
+                        <div key={i} className="animate-card flex flex-col items-center">
+                            <Card card={play.card} size="medium" />
+                            <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', marginTop: '8px', fontWeight: 900 }}>{play.playerName}</span>
                         </div>
-                    )
-                })}
+                    ))}
+                    {room.game?.table.length === 0 && room.status === 'playing' && (
+                        <div className="text-white/5 font-black text-6xl tracking-widest uppercase select-none">TRUCO</div>
+                    )}
+                </div>
             </div>
 
-            {/* Mesa de Juego */}
-            <div className="flex-grow flex items-center justify-center gap-4">
-                {room.game?.table.map((play, i) => (
-                    <div key={i} className="flex flex-col items-center animate-fade-in">
-                        <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{play.playerName}</span>
-                        <div className="card" style={{ width: 70, height: 105, border: '2px solid #fbbf24' }}>
-                            <div style={{ fontWeight: 'bold' }}>{play.card.value}</div>
-                            <SuitIcon suit={play.card.suit} size="2rem" />
-                        </div>
+            {/* Mi Mano (Abajo) */}
+            <div className="fixed bottom-0 left-0 w-full p-12 flex flex-col items-center z-50">
+
+                {myTurn && (
+                    <div className="mb-8 px-8 py-3 glass-panel border-b-4 border-amber-500 animate-bounce">
+                        <span className="font-black text-amber-500 letter-spacing-[2px]">TU TURNO</span>
                     </div>
-                ))}
-            </div>
+                )}
 
-            {/* Mi Mano */}
-            <div className="p-10 flex flex-col items-center">
-                <div className="flex gap-4">
+                <div className="flex gap-6 items-end">
                     {room.game?.hands[socket.id]?.map((c, i) => (
-                        <div key={i} className="card" onClick={() => playCard(c)} style={{ scale: myTurn ? '1.1' : '1', border: myTurn ? '2px solid #fbbf24' : 'none' }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{c.value}</div>
-                            <SuitIcon suit={c.suit} size="3rem" />
+                        <div key={i} className="card-wrapper" onClick={() => playCard(c)}>
+                            <Card card={c} size="large" active={myTurn} />
                         </div>
                     ))}
                 </div>
-                <div className="mt-6 flex gap-4">
-                    <button className="btn-primary" style={{ background: 'transparent', border: '1px solid #fff', color: '#fff' }} onClick={() => socket.emit('leave_hand', { roomId: id })}>IR AL MAZO</button>
+
+                <div className="mt-12 flex gap-4">
+                    <button className="btn-luxury"
+                        style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                        onClick={() => socket.emit('leave_hand', { roomId: id })}>
+                        Ir al mazo
+                    </button>
                 </div>
             </div>
 
-            {/* Overlay de Fin de Juego */}
+            {/* Overlay de Fin de Partida */}
             {room.status === 'finished' && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-100">
-                    <h1 className="title-gradient">¡GANADOR!</h1>
-                    <h2 style={{ fontSize: '3rem' }}>{room.winner}</h2>
-                    <button className="btn-primary mt-10" onClick={() => navigate('/lobby')}>VOLVER AL LOBBY</button>
+                <div className="fixed inset-0 bg-[#020617]/95 backdrop-blur-2xl flex flex-col items-center justify-center z-[100] animate-card">
+                    <h1 className="title-premium" style={{ fontSize: '6rem' }}>VICTORIA</h1>
+                    <h2 style={{ fontSize: '3rem', fontWeight: 900, color: room.winner.includes('1') ? '#3b82f6' : '#ef4444' }}>{room.winner}</h2>
+                    <button className="btn-luxury mt-16 px-12 py-6 text-xl" onClick={() => navigate('/lobby')}>VOLVER AL LOBBY</button>
                 </div>
             )}
         </div>
     );
 }
 
-function SuitIcon({ suit, size }) {
-    const icons = {
+// Helpers
+function getPlayerPosition(playerIdx, myIdx, maxPlayers) {
+    const relativeIdx = (playerIdx - myIdx + maxPlayers) % maxPlayers;
+
+    const positions = {
+        2: {
+            1: { top: '15%', left: '50%' } // Opponent
+        },
+        4: {
+            1: { top: '50%', left: '10%' }, // Left Opponent
+            2: { top: '15%', left: '50%' }, // Partner
+            3: { top: '50%', left: '90%' }  // Right Opponent
+        },
+        6: {
+            1: { top: '70%', left: '10%' },
+            2: { top: '30%', left: '10%' },
+            3: { top: '15%', left: '50%' },
+            4: { top: '30%', left: '90%' },
+            5: { top: '70%', left: '90%' }
+        }
+    };
+
+    return positions[maxPlayers][relativeIdx] || { top: '0', left: '0' };
+}
+
+function Card({ card, size = 'medium', active = false }) {
+    const sizes = {
+        mini: { w: 35, h: 55, fontSize: '0.6rem' },
+        small: { w: 50, h: 75, fontSize: '0.8rem' },
+        medium: { w: 80, h: 120, fontSize: '1rem' },
+        large: { w: 100, h: 155, fontSize: '1.4rem' }
+    };
+
+    const suitIcons = {
         espada: '⚔️',
         basto: '🌿',
         oro: '🪙',
         copa: '🏆'
     };
-    return <span style={{ fontSize: size }}>{icons[suit]}</span>;
+
+    const s = sizes[size];
+
+    if (card.hidden) {
+        return (
+            <div className="truco-card hidden" style={{ width: s.w, height: s.h }}></div>
+        );
+    }
+
+    return (
+        <div className="truco-card"
+            style={{
+                width: s.w,
+                height: s.h,
+                transform: active ? 'scale(1.05)' : 'none',
+                borderColor: card.power > 90 ? '#fbbf24' : 'transparent',
+                borderWidth: card.power > 90 ? '2px' : '0'
+            }}>
+            <div style={{ fontWeight: 900, lineHeight: 1, fontSize: s.fontSize, color: '#1e293b' }}>{card.value}</div>
+            <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifySelf: 'center', fontSize: `calc(${s.fontSize} * 2)` }}>
+                {suitIcons[card.suit]}
+            </div>
+            <div style={{ fontWeight: 900, lineHeight: 1, fontSize: s.fontSize, textAlign: 'right', color: '#1e293b' }}>{card.value}</div>
+        </div>
+    );
 }
